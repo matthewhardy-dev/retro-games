@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Tetris | M@H Arcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root{--bg:#0c0a14;--card:#151028;--border:#251e40;--accent:#8b5cf6;--accent-light:#a78bfa;--text:#ede8f5;--text2:#9088a4;}
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;min-height:100vh;overflow:hidden;touch-action:none;user-select:none;}
+        .header{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:500px;padding:0.8rem 0.5rem 0.3rem;}
+        .back{color:var(--accent-light);text-decoration:none;font-size:0.8rem;font-weight:600;}
+        .back:hover{color:var(--text);}
+        .title{font-family:'Press Start 2P',monospace;font-size:0.8rem;color:var(--accent-light);}
+        .brand{font-size:0.7rem;color:var(--text2);}
+        .game-area{display:flex;gap:1rem;align-items:flex-start;padding:0.5rem;}
+        canvas#board{border:2px solid var(--border);border-radius:6px;background:#0a0818;}
+        .sidebar{display:flex;flex-direction:column;gap:0.8rem;min-width:100px;}
+        .info-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:0.8rem;text-align:center;}
+        .info-box .label{font-size:0.55rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;font-family:'Press Start 2P',monospace;margin-bottom:0.4rem;}
+        .info-box .val{font-family:'Press Start 2P',monospace;font-size:0.8rem;color:var(--accent-light);}
+        canvas#next{background:#0a0818;border:1px solid var(--border);border-radius:4px;margin:0 auto;}
+        .msg{font-family:'Press Start 2P',monospace;font-size:0.55rem;color:var(--text2);padding:0.5rem;text-align:center;min-height:1.5rem;}
+        .touch-controls{display:none;padding:0.3rem 0;}
+        .touch-row{display:flex;justify-content:center;gap:0.4rem;}
+        .touch-btn{width:52px;height:48px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--accent-light);font-size:1rem;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background 0.1s;}
+        .touch-btn:active{background:var(--accent);color:#fff;}
+        .touch-btn.wide{width:110px;font-size:0.7rem;font-family:'Press Start 2P',monospace;}
+        .spacer{width:52px;height:48px;}
+        @media(hover:none)and(pointer:coarse){.touch-controls{display:block;}}
+        @media(max-width:440px){
+            .game-area{flex-direction:column;align-items:center;gap:0.5rem;}
+            .sidebar{flex-direction:row;flex-wrap:wrap;justify-content:center;min-width:0;}
+            .info-box{padding:0.5rem 0.8rem;}
+            canvas#board{width:calc(100vw - 40px)!important;height:calc((100vw - 40px) * 2)!important;}
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <a href="index.html" class="back">← ARCADE</a>
+    <div class="title">🧱 TETRIS</div>
+    <div class="brand">M@H</div>
+</div>
+<div class="game-area">
+    <canvas id="board" width="250" height="500"></canvas>
+    <div class="sidebar">
+        <div class="info-box"><div class="label">Score</div><div class="val" id="score">0</div></div>
+        <div class="info-box"><div class="label">Level</div><div class="val" id="level">1</div></div>
+        <div class="info-box"><div class="label">Lines</div><div class="val" id="lines">0</div></div>
+        <div class="info-box"><div class="label">High</div><div class="val" id="high">0</div></div>
+        <div class="info-box"><div class="label">Next</div><canvas id="next" width="80" height="80"></canvas></div>
+    </div>
+</div>
+<div class="msg" id="msg">Press any key or tap to start</div>
+<div class="touch-controls">
+    <div class="touch-row">
+        <div class="spacer"></div>
+        <div class="touch-btn" data-act="rotate">↻</div>
+        <div class="spacer"></div>
+    </div>
+    <div class="touch-row">
+        <div class="touch-btn" data-act="left">◄</div>
+        <div class="touch-btn" data-act="down">▼</div>
+        <div class="touch-btn" data-act="right">►</div>
+    </div>
+    <div class="touch-row" style="margin-top:0.3rem;">
+        <div class="touch-btn wide" data-act="drop">DROP</div>
+    </div>
+</div>
+
+<script>
+const board = document.getElementById('board');
+const ctx = board.getContext('2d');
+const nextCanvas = document.getElementById('next');
+const nctx = nextCanvas.getContext('2d');
+const msgEl = document.getElementById('msg');
+const scoreEl = document.getElementById('score');
+const levelEl = document.getElementById('level');
+const linesEl = document.getElementById('lines');
+const highEl = document.getElementById('high');
+
+const COLS = 10, ROWS = 20, BLOCK = 25;
+const COLORS = ['#8b5cf6','#a78bfa','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4'];
+
+const SHAPES = [
+    [[1,1,1,1]],
+    [[1,1],[1,1]],
+    [[0,1,0],[1,1,1]],
+    [[1,0,0],[1,1,1]],
+    [[0,0,1],[1,1,1]],
+    [[1,1,0],[0,1,1]],
+    [[0,1,1],[1,1,0]]
+];
+
+let grid, current, nextPiece, score, lines, level, gameOver, started, dropTimer, lastDrop;
+let highScore = parseInt(localStorage.getItem('mah_tetris_high') || '0');
+highEl.textContent = highScore;
+
+function newPiece(shapeIdx) {
+    const idx = shapeIdx !== undefined ? shapeIdx : Math.floor(Math.random() * SHAPES.length);
+    const shape = SHAPES[idx].map(r => [...r]);
+    return { shape, color: COLORS[idx], x: Math.floor((COLS - shape[0].length) / 2), y: 0 };
+}
+
+function reset() {
+    grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+    score = 0; lines = 0; level = 1;
+    gameOver = false; started = false;
+    scoreEl.textContent = '0'; linesEl.textContent = '0'; levelEl.textContent = '1';
+    current = newPiece();
+    nextPiece = newPiece();
+    msgEl.textContent = 'Press any key or tap to start';
+    drawBoard(); drawNext();
+}
+
+function start() {
+    if (started && !gameOver) return;
+    if (gameOver) reset();
+    started = true;
+    msgEl.textContent = '';
+    lastDrop = performance.now();
+    requestAnimationFrame(gameLoop);
+}
+
+function getSpeed() { return Math.max(80, 500 - (level - 1) * 40); }
+
+function valid(piece, dx, dy, shape) {
+    const s = shape || piece.shape;
+    for (let r = 0; r < s.length; r++) {
+        for (let c = 0; c < s[r].length; c++) {
+            if (!s[r][c]) continue;
+            const nx = piece.x + c + dx;
+            const ny = piece.y + r + dy;
+            if (nx < 0 || nx >= COLS || ny >= ROWS) return false;
+            if (ny >= 0 && grid[ny][nx]) return false;
+        }
+    }
+    return true;
+}
+
+function rotate(piece) {
+    const s = piece.shape;
+    const rotated = s[0].map((_, i) => s.map(row => row[i]).reverse());
+    if (valid(piece, 0, 0, rotated)) { piece.shape = rotated; return; }
+    // Wall kicks
+    for (const kick of [-1, 1, -2, 2]) {
+        if (valid(piece, kick, 0, rotated)) { piece.shape = rotated; piece.x += kick; return; }
+    }
+}
+
+function lock() {
+    for (let r = 0; r < current.shape.length; r++) {
+        for (let c = 0; c < current.shape[r].length; c++) {
+            if (!current.shape[r][c]) continue;
+            const y = current.y + r;
+            if (y < 0) { gameOver = true; return; }
+            grid[y][current.x + c] = current.color;
+        }
+    }
+    clearLines();
+    current = nextPiece;
+    nextPiece = newPiece();
+    drawNext();
+    if (!valid(current, 0, 0)) gameOver = true;
+}
+
+function clearLines() {
+    let cleared = 0;
+    for (let r = ROWS - 1; r >= 0; r--) {
+        if (grid[r].every(c => c)) {
+            grid.splice(r, 1);
+            grid.unshift(Array(COLS).fill(0));
+            cleared++;
+            r++;
+        }
+    }
+    if (cleared) {
+        const pts = [0, 100, 300, 500, 800];
+        score += (pts[cleared] || 800) * level;
+        lines += cleared;
+        level = Math.floor(lines / 10) + 1;
+        scoreEl.textContent = score;
+        linesEl.textContent = lines;
+        levelEl.textContent = level;
+        if (score > highScore) { highScore = score; highEl.textContent = highScore; localStorage.setItem('mah_tetris_high', highScore); }
+    }
+}
+
+function hardDrop() {
+    while (valid(current, 0, 1)) current.y++;
+    lock();
+}
+
+function drawBlock(context, x, y, color, size) {
+    context.fillStyle = color;
+    context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+    // Highlight
+    context.fillStyle = 'rgba(255,255,255,0.15)';
+    context.fillRect(x * size + 1, y * size + 1, size - 2, 3);
+    context.fillRect(x * size + 1, y * size + 1, 3, size - 2);
+}
+
+function drawBoard() {
+    ctx.fillStyle = '#0a0818';
+    ctx.fillRect(0, 0, board.width, board.height);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(139,92,246,0.04)';
+    for (let r = 0; r <= ROWS; r++) { ctx.beginPath(); ctx.moveTo(0, r * BLOCK); ctx.lineTo(board.width, r * BLOCK); ctx.stroke(); }
+    for (let c = 0; c <= COLS; c++) { ctx.beginPath(); ctx.moveTo(c * BLOCK, 0); ctx.lineTo(c * BLOCK, board.height); ctx.stroke(); }
+
+    // Locked blocks
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c]) drawBlock(ctx, c, r, grid[r][c], BLOCK);
+        }
+    }
+
+    // Ghost piece
+    if (current && started && !gameOver) {
+        let ghostY = current.y;
+        while (valid({...current, y: ghostY + 1}, 0, 0)) ghostY++;
+        if (ghostY !== current.y) {
+            for (let r = 0; r < current.shape.length; r++) {
+                for (let c = 0; c < current.shape[r].length; c++) {
+                    if (!current.shape[r][c]) continue;
+                    ctx.fillStyle = 'rgba(139,92,246,0.15)';
+                    ctx.fillRect((current.x + c) * BLOCK + 1, (ghostY + r) * BLOCK + 1, BLOCK - 2, BLOCK - 2);
+                }
+            }
+        }
+    }
+
+    // Current piece
+    if (current) {
+        for (let r = 0; r < current.shape.length; r++) {
+            for (let c = 0; c < current.shape[r].length; c++) {
+                if (!current.shape[r][c]) continue;
+                drawBlock(ctx, current.x + c, current.y + r, current.color, BLOCK);
+            }
+        }
+    }
+
+    if (gameOver) {
+        ctx.fillStyle = 'rgba(12,10,20,0.75)';
+        ctx.fillRect(0, 0, board.width, board.height);
+        ctx.fillStyle = '#a78bfa';
+        ctx.font = '18px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME', board.width / 2, board.height / 2 - 15);
+        ctx.fillText('OVER', board.width / 2, board.height / 2 + 15);
+        ctx.font = '8px "Press Start 2P"';
+        ctx.fillStyle = '#9088a4';
+        ctx.fillText(`Score: ${score}`, board.width / 2, board.height / 2 + 40);
+    }
+}
+
+function drawNext() {
+    nctx.fillStyle = '#0a0818';
+    nctx.fillRect(0, 0, 80, 80);
+    if (!nextPiece) return;
+    const s = nextPiece.shape;
+    const bSize = 16;
+    const ox = Math.floor((80 - s[0].length * bSize) / 2);
+    const oy = Math.floor((80 - s.length * bSize) / 2);
+    for (let r = 0; r < s.length; r++) {
+        for (let c = 0; c < s[r].length; c++) {
+            if (!s[r][c]) continue;
+            nctx.fillStyle = nextPiece.color;
+            nctx.fillRect(ox + c * bSize + 1, oy + r * bSize + 1, bSize - 2, bSize - 2);
+            nctx.fillStyle = 'rgba(255,255,255,0.15)';
+            nctx.fillRect(ox + c * bSize + 1, oy + r * bSize + 1, bSize - 2, 2);
+        }
+    }
+}
+
+function gameLoop(time) {
+    if (!started || gameOver) {
+        if (gameOver) { drawBoard(); msgEl.textContent = `GAME OVER — Score: ${score} — Tap or press to restart`; }
+        return;
+    }
+    if (time - lastDrop > getSpeed()) {
+        if (valid(current, 0, 1)) { current.y++; }
+        else { lock(); }
+        lastDrop = time;
+    }
+    drawBoard();
+    if (!gameOver) requestAnimationFrame(gameLoop);
+    else { drawBoard(); msgEl.textContent = `GAME OVER — Score: ${score} — Tap or press to restart`; }
+}
+
+// Keyboard
+document.addEventListener('keydown', e => {
+    if (!started || gameOver) { start(); return; }
+    switch (e.key) {
+        case 'ArrowLeft': if (valid(current, -1, 0)) current.x--; break;
+        case 'ArrowRight': if (valid(current, 1, 0)) current.x++; break;
+        case 'ArrowDown': if (valid(current, 0, 1)) { current.y++; score++; scoreEl.textContent = score; } break;
+        case 'ArrowUp': rotate(current); break;
+        case ' ': e.preventDefault(); hardDrop(); break;
+    }
+    drawBoard();
+});
+
+// Touch buttons
+document.querySelectorAll('.touch-btn').forEach(btn => {
+    const act = btn.dataset.act;
+    let interval;
+    function doAction() {
+        if (!started || gameOver) { start(); return; }
+        switch (act) {
+            case 'left': if (valid(current, -1, 0)) current.x--; break;
+            case 'right': if (valid(current, 1, 0)) current.x++; break;
+            case 'down': if (valid(current, 0, 1)) { current.y++; score++; scoreEl.textContent = score; } break;
+            case 'rotate': rotate(current); break;
+            case 'drop': hardDrop(); break;
+        }
+        drawBoard();
+    }
+    btn.addEventListener('touchstart', e => { e.preventDefault(); doAction(); if (act === 'left' || act === 'right' || act === 'down') interval = setInterval(doAction, 100); });
+    btn.addEventListener('touchend', e => { e.preventDefault(); clearInterval(interval); });
+    btn.addEventListener('touchcancel', () => clearInterval(interval));
+});
+
+// Tap canvas to start
+board.addEventListener('touchstart', e => { e.preventDefault(); if (!started || gameOver) start(); });
+
+reset();
+</script>
+</body>
+</html>
