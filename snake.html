@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Snake | M@H Arcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root{--bg:#0c0a14;--card:#151028;--border:#251e40;--accent:#8b5cf6;--accent-light:#a78bfa;--text:#ede8f5;--text2:#9088a4;--green:#10b981;--red:#ef4444;}
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;min-height:100vh;overflow:hidden;touch-action:none;user-select:none;}
+        .header{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:420px;padding:1rem 0.5rem 0.5rem;}
+        .back{color:var(--accent-light);text-decoration:none;font-size:0.8rem;font-weight:600;}
+        .back:hover{color:var(--text);}
+        .title{font-family:'Press Start 2P',monospace;font-size:0.8rem;color:var(--accent-light);}
+        .brand{font-size:0.7rem;color:var(--text2);}
+        .scores{display:flex;gap:2rem;justify-content:center;padding:0.5rem;font-family:'Press Start 2P',monospace;font-size:0.6rem;}
+        .scores span{color:var(--text2);}
+        .scores .val{color:var(--accent-light);}
+        .difficulty{display:flex;gap:0.5rem;justify-content:center;padding:0.3rem 0 0.5rem;}
+        .diff-btn{background:var(--card);border:1px solid var(--border);color:var(--text2);padding:0.3rem 0.8rem;border-radius:6px;font-size:0.7rem;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.2s;}
+        .diff-btn:hover{border-color:var(--accent);}
+        .diff-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+        canvas{border:2px solid var(--border);border-radius:8px;background:#0a0818;touch-action:none;}
+        .msg{font-family:'Press Start 2P',monospace;font-size:0.65rem;color:var(--text2);padding:0.8rem;text-align:center;min-height:2.5rem;}
+        .touch-controls{display:none;margin-top:0.5rem;}
+        .touch-row{display:flex;justify-content:center;gap:0.5rem;}
+        .touch-btn{width:56px;height:56px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--accent-light);font-size:1.2rem;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background 0.1s;}
+        .touch-btn:active{background:var(--accent);color:#fff;}
+        .spacer{width:56px;height:56px;}
+        @media(hover:none)and(pointer:coarse){.touch-controls{display:block;}}
+        @media(max-width:440px){canvas{width:calc(100vw - 20px)!important;height:calc(100vw - 20px)!important;}}
+    </style>
+</head>
+<body>
+<div class="header">
+    <a href="index.html" class="back">← ARCADE</a>
+    <div class="title">🐍 SNAKE</div>
+    <div class="brand">M@H</div>
+</div>
+<div class="scores">
+    <div><span>SCORE </span><span class="val" id="score">0</span></div>
+    <div><span>HIGH </span><span class="val" id="high">0</span></div>
+</div>
+<div class="difficulty">
+    <button class="diff-btn" data-speed="120">Easy</button>
+    <button class="diff-btn active" data-speed="85">Normal</button>
+    <button class="diff-btn" data-speed="55">Hard</button>
+    <button class="diff-btn" data-speed="35">Insane</button>
+</div>
+<canvas id="game" width="400" height="400"></canvas>
+<div class="msg" id="msg">Press any arrow key or tap to start</div>
+<div class="touch-controls">
+    <div class="touch-row"><div class="spacer"></div><div class="touch-btn" data-dir="up">▲</div><div class="spacer"></div></div>
+    <div class="touch-row"><div class="touch-btn" data-dir="left">◄</div><div class="touch-btn" data-dir="down">▼</div><div class="touch-btn" data-dir="right">►</div></div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score');
+const highEl = document.getElementById('high');
+const msgEl = document.getElementById('msg');
+
+const GRID = 20;
+const CELLS = canvas.width / GRID;
+let snake, dir, nextDir, food, score, gameOver, started, speed, loop;
+let highScore = parseInt(localStorage.getItem('mah_snake_high') || '0');
+highEl.textContent = highScore;
+
+// Difficulty
+speed = 85;
+document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        speed = parseInt(btn.dataset.speed);
+        if (!started || gameOver) reset();
+    });
+});
+
+function reset() {
+    const mid = Math.floor(CELLS / 2);
+    snake = [{x: mid, y: mid}, {x: mid - 1, y: mid}, {x: mid - 2, y: mid}];
+    dir = {x: 1, y: 0};
+    nextDir = {x: 1, y: 0};
+    score = 0;
+    gameOver = false;
+    started = false;
+    scoreEl.textContent = '0';
+    msgEl.textContent = 'Press any arrow key or tap to start';
+    placeFood();
+    draw();
+    if (loop) clearInterval(loop);
+}
+
+function placeFood() {
+    let pos;
+    do {
+        pos = {x: Math.floor(Math.random() * CELLS), y: Math.floor(Math.random() * CELLS)};
+    } while (snake.some(s => s.x === pos.x && s.y === pos.y));
+    food = pos;
+}
+
+function start() {
+    if (started && !gameOver) return;
+    if (gameOver) reset();
+    started = true;
+    msgEl.textContent = '';
+    if (loop) clearInterval(loop);
+    loop = setInterval(update, speed);
+}
+
+function update() {
+    if (gameOver) return;
+    dir = {...nextDir};
+    const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+
+    // Wall collision
+    if (head.x < 0 || head.x >= CELLS || head.y < 0 || head.y >= CELLS) { die(); return; }
+    // Self collision
+    if (snake.some(s => s.x === head.x && s.y === head.y)) { die(); return; }
+
+    snake.unshift(head);
+
+    if (head.x === food.x && head.y === food.y) {
+        score++;
+        scoreEl.textContent = score;
+        if (score > highScore) { highScore = score; highEl.textContent = highScore; localStorage.setItem('mah_snake_high', highScore); }
+        placeFood();
+    } else {
+        snake.pop();
+    }
+    draw();
+}
+
+function die() {
+    gameOver = true;
+    clearInterval(loop);
+    msgEl.textContent = `GAME OVER — Score: ${score} — Tap or press to restart`;
+    draw();
+}
+
+function draw() {
+    ctx.fillStyle = '#0a0818';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(139,92,246,0.04)';
+    for (let i = 0; i <= CELLS; i++) {
+        ctx.beginPath(); ctx.moveTo(i * GRID, 0); ctx.lineTo(i * GRID, canvas.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, i * GRID); ctx.lineTo(canvas.width, i * GRID); ctx.stroke();
+    }
+
+    // Food
+    ctx.fillStyle = '#ef4444';
+    ctx.shadowColor = '#ef4444';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(food.x * GRID + GRID / 2, food.y * GRID + GRID / 2, GRID / 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Snake
+    snake.forEach((seg, i) => {
+        const ratio = 1 - (i / snake.length) * 0.6;
+        const r = Math.round(139 * ratio);
+        const g = Math.round(92 * ratio);
+        const b = Math.round(246 * ratio);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        if (i === 0) {
+            ctx.shadowColor = '#8b5cf6';
+            ctx.shadowBlur = 8;
+        }
+        const pad = i === 0 ? 1 : 2;
+        ctx.fillRect(seg.x * GRID + pad, seg.y * GRID + pad, GRID - pad * 2, GRID - pad * 2);
+        if (i === 0) ctx.shadowBlur = 0;
+    });
+
+    // Game over overlay
+    if (gameOver) {
+        ctx.fillStyle = 'rgba(12,10,20,0.7)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#a78bfa';
+        ctx.font = '20px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 10);
+        ctx.font = '10px "Press Start 2P"';
+        ctx.fillStyle = '#9088a4';
+        ctx.fillText(`Score: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+    }
+}
+
+// Keyboard
+document.addEventListener('keydown', e => {
+    const map = {ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0}};
+    if (map[e.key]) {
+        e.preventDefault();
+        const d = map[e.key];
+        if (d.x !== -dir.x || d.y !== -dir.y) nextDir = d;
+        start();
+    }
+});
+
+// Touch swipe
+let touchStart = null;
+canvas.addEventListener('touchstart', e => { e.preventDefault(); touchStart = {x: e.touches[0].clientX, y: e.touches[0].clientY}; if (!started || gameOver) start(); });
+canvas.addEventListener('touchmove', e => e.preventDefault());
+canvas.addEventListener('touchend', e => {
+    if (!touchStart) return;
+    const dx = e.changedTouches[0].clientX - touchStart.x;
+    const dy = e.changedTouches[0].clientY - touchStart.y;
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+    let d;
+    if (Math.abs(dx) > Math.abs(dy)) d = dx > 0 ? {x:1,y:0} : {x:-1,y:0};
+    else d = dy > 0 ? {x:0,y:1} : {x:0,y:-1};
+    if (d.x !== -dir.x || d.y !== -dir.y) nextDir = d;
+    touchStart = null;
+});
+
+// Touch buttons
+document.querySelectorAll('.touch-btn').forEach(btn => {
+    const map = {up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
+    btn.addEventListener('touchstart', e => {
+        e.preventDefault();
+        const d = map[btn.dataset.dir];
+        if (d.x !== -dir.x || d.y !== -dir.y) nextDir = d;
+        start();
+    });
+});
+
+reset();
+</script>
+</body>
+</html>

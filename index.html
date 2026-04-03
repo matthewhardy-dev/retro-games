@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M@H Retro Arcade</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg:#0c0a14; --card:#151028; --border:#251e40; --accent:#8b5cf6; --accent-light:#a78bfa; --text:#ede8f5; --text2:#9088a4; }
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
+        canvas#particles{position:fixed;inset:0;z-index:0;pointer-events:none;}
+        .arcade{position:relative;z-index:1;text-align:center;padding:2rem;}
+        .logo{font-family:'Press Start 2P',monospace;font-size:clamp(1.5rem,4vw,2.5rem);color:var(--accent-light);margin-bottom:0.5rem;text-shadow:0 0 20px rgba(139,92,246,0.4);}
+        .subtitle{color:var(--text2);font-size:0.9rem;margin-bottom:3rem;}
+        .games{display:flex;gap:2rem;justify-content:center;flex-wrap:wrap;}
+        .game-card{
+            background:var(--card);border:2px solid var(--border);border-radius:16px;
+            padding:2.5rem 3rem;cursor:pointer;transition:all 0.3s;text-decoration:none;color:inherit;
+            min-width:220px;position:relative;overflow:hidden;
+        }
+        .game-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent-light));opacity:0;transition:opacity 0.3s;}
+        .game-card:hover{border-color:var(--accent);box-shadow:0 8px 40px rgba(139,92,246,0.25);transform:translateY(-5px);}
+        .game-card:hover::before{opacity:1;}
+        .game-icon{font-size:3.5rem;margin-bottom:1rem;}
+        .game-card h2{font-family:'Press Start 2P',monospace;font-size:0.9rem;color:var(--accent-light);margin-bottom:0.5rem;}
+        .game-card p{color:var(--text2);font-size:0.8rem;line-height:1.5;}
+        .game-card .keys{margin-top:1rem;font-size:0.65rem;color:var(--text2);opacity:0.6;}
+        .brand{position:fixed;bottom:1.5rem;font-size:0.75rem;color:var(--text2);z-index:1;}
+        .brand a{color:var(--accent-light);text-decoration:none;}
+        .brand a:hover{color:var(--text);}
+        @media(max-width:500px){.games{flex-direction:column;align-items:center;}.game-card{min-width:0;width:100%;max-width:280px;padding:2rem;}}
+    </style>
+</head>
+<body>
+<canvas id="particles"></canvas>
+<div class="arcade">
+    <div class="logo">M@H ARCADE</div>
+    <p class="subtitle">Pick a game</p>
+    <div class="games">
+        <a href="snake.html" class="game-card">
+            <div class="game-icon">🐍</div>
+            <h2>SNAKE</h2>
+            <p>Eat. Grow. Don't crash.</p>
+            <div class="keys">Arrow Keys / Swipe</div>
+        </a>
+        <a href="pong.html" class="game-card">
+            <div class="game-icon">🏓</div>
+            <h2>PONG</h2>
+            <p>Classic 1v1 paddle battle.</p>
+            <div class="keys">W/S &amp; ↑/↓ or Touch</div>
+        </a>
+    </div>
+</div>
+<div class="brand"><a href="https://matthewhardy-dev.github.io">matthewhardy-dev.github.io</a></div>
+<script>
+const c=document.getElementById('particles'),x=c.getContext('2d');let ps=[];
+function resize(){c.width=innerWidth;c.height=innerHeight;}addEventListener('resize',resize);resize();
+for(let i=0;i<40;i++)ps.push({x:Math.random()*c.width,y:Math.random()*c.height,vx:(Math.random()-0.5)*0.3,vy:(Math.random()-0.5)*0.3,r:Math.random()*1.5+0.5});
+function draw(){x.clearRect(0,0,c.width,c.height);ps.forEach((p,i)=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>c.width)p.vx*=-1;if(p.y<0||p.y>c.height)p.vy*=-1;x.beginPath();x.arc(p.x,p.y,p.r,0,Math.PI*2);x.fillStyle='rgba(139,92,246,0.3)';x.fill();for(let j=i+1;j<ps.length;j++){const dx=p.x-ps[j].x,dy=p.y-ps[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<120){x.beginPath();x.moveTo(p.x,p.y);x.lineTo(ps[j].x,ps[j].y);x.strokeStyle=`rgba(139,92,246,${0.1*(1-d/120)})`;x.stroke();}}});requestAnimationFrame(draw);}draw();
+</script>
+</body>
+</html>
