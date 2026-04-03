@@ -48,7 +48,7 @@
     <span class="p2" id="s2">0</span>
 </div>
 <canvas id="game" width="600" height="400"></canvas>
-<div class="msg" id="msg">Press Space or tap to serve</div>
+<div class="msg" id="msg">W/S or ↑/↓ to move  |  Space to serve</div>
 <div class="touch-zones">
     <div class="touch-zone left" id="touchL"></div>
     <div class="touch-zone right" id="touchR"></div>
@@ -76,7 +76,7 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
         mode = btn.dataset.mode;
         fullReset();
         if (mode === '2p') msgEl.textContent = 'P1: W/S  |  P2: ↑/↓  |  Space to serve';
-        else msgEl.textContent = 'Press Space or tap to serve';
+        else msgEl.textContent = 'W/S or \u2191/\u2193 to move  |  Space to serve';
     });
 });
 
@@ -190,14 +190,14 @@ function update() {
         s2El.textContent = score2;
         if (score2 >= WIN_SCORE) { win(2); return; }
         resetRound();
-        msgEl.textContent = 'Press Space or tap to serve';
+        msgEl.textContent = mode === '2p' ? 'P1: W/S  |  P2: \u2191/\u2193  |  Space to serve' : 'W/S or \u2191/\u2193 to move  |  Space to serve';
     }
     if (ball.x > W + BALL_R) {
         score1++;
         s1El.textContent = score1;
         if (score1 >= WIN_SCORE) { win(1); return; }
         resetRound();
-        msgEl.textContent = 'Press Space or tap to serve';
+        msgEl.textContent = mode === '2p' ? 'P1: W/S  |  P2: \u2191/\u2193  |  Space to serve' : 'W/S or \u2191/\u2193 to move  |  Space to serve';
     }
 }
 
